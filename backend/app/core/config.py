@@ -1,5 +1,5 @@
 from functools import lru_cache
-
+from typing import List
 from pydantic_settings import BaseSettings
 
 
@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     # Можно переопределить целиком через .env
     DATABASE_URL: str | None = None
+
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:

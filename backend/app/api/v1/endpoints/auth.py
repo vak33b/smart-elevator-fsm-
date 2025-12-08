@@ -7,26 +7,32 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
-from app import models
 from app.db.session import get_db
+from app import models, schemas
 from app.core.security import (
     get_password_hash,
     verify_password,
     create_access_token,
 )
-from app.schemas.user import User, UserCreate, Token
 
 router = APIRouter()
 
+
+# ---------- СХЕМЫ ДЛЯ ЗАПРОСОВ ----------
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
 
-@router.post("/register", response_model=User)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    # проверка email
+# ---------- РЕГИСТРАЦИЯ ----------
+
+@router.post(
+    "/register",
+    response_model=schemas.User,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = (
         db.query(models.User)
         .filter(models.User.email == user_in.email)
@@ -38,13 +44,18 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="Пользователь с таким email уже существует",
         )
 
+    # маппинг роль -> SQLAlchemy Enum
+    if user_in.role == schemas.UserRole.TEACHER:
+        db_role = models.UserRole.teacher
+    else:
+        db_role = models.UserRole.student
+
     db_user = models.User(
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=get_password_hash(user_in.password),
-        # роль и is_active берутся из дефолтов в модели
-        role=models.UserRole[user_in.role.value],
-        is_active=True,
+        role=db_role,
+        is_active=user_in.is_active,
     )
     db.add(db_user)
     db.commit()
@@ -52,25 +63,31 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 
-@router.post("/login", response_model=Token)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+# ---------- ЛОГИН ----------
+
+@router.post(
+    "/login",
+    response_model=schemas.Token,
+)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
-    Логин по JSON-у:
+    Принимаем JSON:
     {
-      "email": "user@example.com",
-      "password": "string123"
+      "email": "...",
+      "password": "..."
     }
     """
     user = (
         db.query(models.User)
-        .filter(models.User.email == body.email)
+        .filter(models.User.email == payload.email)
         .first()
     )
-    if not user or not verify_password(body.password, user.hashed_password):
+
+    if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Неверный email или пароль",
         )
 
     access_token = create_access_token(str(user.id))
-    return Token(access_token=access_token)
+    return schemas.Token(access_token=access_token)

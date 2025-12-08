@@ -32,9 +32,8 @@ export interface TokenResponse {
   token_type: string;
 }
 
-// ----- Чистые функции для AuthContext -----
+// ----- Чистые функции -----
 
-// Регистрация пользователя
 export async function registerUser(
   payload: RegisterPayload
 ): Promise<User> {
@@ -42,8 +41,7 @@ export async function registerUser(
   return data;
 }
 
-// Логин. Бэкенд сейчас ожидает email и password как query-параметры
-// (см. auth.py: def login(email: str, password: str, ...)).
+// Бэк ждёт email/password как query-параметры
 export async function loginUser(
   email: string,
   password: string
@@ -51,26 +49,21 @@ export async function loginUser(
   const { data } = await apiClient.post<TokenResponse>(
     "/auth/login",
     null,
-    {
-      params: { email, password },
-    }
+    { params: { email, password } }
   );
   return data;
 }
 
-// ----- Обёртка для старого кода (LoginPage / RegisterPage) -----
+// ----- Обёртка для страниц -----
 
 export const authApi = {
   async login(payload: LoginPayload): Promise<TokenResponse> {
-    // переиспользуем loginUser, чтобы не дублировать логику
     return loginUser(payload.email, payload.password);
   },
 
   async register(payload: RegisterPayload): Promise<User> {
-    // возвращаем созданного пользователя
     return registerUser(payload);
   },
 };
 
-// Для совместимости с предыдущими названиями
 export type LoginResponse = TokenResponse;

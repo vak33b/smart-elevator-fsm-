@@ -1,12 +1,6 @@
+// src/pages/auth/LoginPage.tsx
 import React, { useState } from "react";
-import {
-  Card,
-  Form,
-  Input,
-  Button,
-  Typography,
-  message,
-} from "antd";
+import { Card, Form, Input, Button, Typography, message } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
@@ -16,32 +10,37 @@ const { Title, Text } = Typography;
 export const LoginPage: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login } = useAuth(); // login(token: string, role?: string)
   const [loading, setLoading] = useState(false);
 
   const handleFinish = async (values: any) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.append("email", values.email);
-      params.append("password", values.password);
-
-      const { data } = await axios.post(
-        "/api/v1/auth/login",
-        params
-      );
+      // отправляем JSON, как ждёт наш /auth/login
+      const { data } = await axios.post("/api/v1/auth/login", {
+        email: values.email,
+        password: values.password,
+      });
 
       if (data?.access_token) {
-        login(data.access_token, data.role);
+        // роль пока с бэка не возвращаем — можно передать undefined
+        login(data.access_token);
       }
 
       message.success("Успешный вход");
       navigate("/projects");
     } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail ||
-        "Не удалось войти. Проверьте e-mail и пароль.";
-      message.error(detail);
+      const detail = err?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // detail из FastAPI при 422 — это массив объектов {type, loc, msg, input}
+        message.error(detail.map((e: any) => e.msg).join("; "));
+      } else if (typeof detail === "string") {
+        message.error(detail);
+      } else {
+        message.error(
+          "Не удалось войти. Проверьте e-mail и пароль."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -89,10 +88,7 @@ export const LoginPage: React.FC = () => {
             name="email"
             rules={[
               { required: true, message: "Укажите e-mail" },
-              {
-                type: "email",
-                message: "Введите корректный e-mail",
-              },
+              { type: "email", message: "Введите корректный e-mail" },
             ]}
           >
             <Input placeholder="student@example.com" size="large" />
@@ -101,14 +97,9 @@ export const LoginPage: React.FC = () => {
           <Form.Item
             label="Пароль"
             name="password"
-            rules={[
-              { required: true, message: "Введите пароль" },
-            ]}
+            rules={[{ required: true, message: "Введите пароль" }]}
           >
-            <Input.Password
-              placeholder="Ваш пароль"
-              size="large"
-            />
+            <Input.Password placeholder="Ваш пароль" size="large" />
           </Form.Item>
 
           <Form.Item style={{ marginTop: 24 }}>
@@ -132,8 +123,7 @@ export const LoginPage: React.FC = () => {
           }}
         >
           <Text type="secondary">
-            Нет аккаунта?{" "}
-            <Link to="/register">Зарегистрироваться</Link>
+            Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
           </Text>
         </div>
       </Card>

@@ -1,44 +1,54 @@
 // src/pages/auth/RegisterPage.tsx
-import React from "react";
+import React, { useState } from "react";
 import {
-  Button,
   Card,
   Form,
   Input,
+  Button,
   Radio,
   Typography,
   message,
 } from "antd";
 import { useNavigate, Link } from "react-router-dom";
-import { authApi } from "../../api/auth";
+import axios from "axios";
 
 const { Title, Text } = Typography;
 
 export const RegisterPage: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleFinish = async (values: {
-    email: string;
-    full_name?: string;
-    role: "student" | "teacher";
-    password: string;
-    confirm: string;
-  }) => {
+  const handleFinish = async (values: any) => {
+    setLoading(true);
     try {
-      await authApi.register({
+      if (values.password !== values.password_confirm) {
+        message.error("Пароль и подтверждение не совпадают");
+        return;
+      }
+
+      const payload = {
         email: values.email,
-        full_name: values.full_name,
+        full_name: values.full_name || undefined,
         role: values.role,
         password: values.password,
-      });
+      };
 
-      message.success("Регистрация прошла успешно, войдите в систему.");
-      navigate("/auth/login");
+      await axios.post("/api/v1/auth/register", payload);
+
+      message.success("Регистрация прошла успешно, войдите в систему");
+      navigate("/login");
     } catch (err: any) {
-      const detail =
-        err?.response?.data?.detail || "Ошибка регистрации. Попробуйте ещё раз.";
-      message.error(detail);
+      const detail = err?.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        message.error(detail.map((e: any) => e.msg).join("; "));
+      } else if (typeof detail === "string") {
+        message.error(detail);
+      } else {
+        message.error("Не удалось зарегистрироваться");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,47 +56,55 @@ export const RegisterPage: React.FC = () => {
     <div
       style={{
         minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top left, #e6f0ff, #f7f7f9)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#f5f5f5",
+        padding: "24px",
       }}
     >
       <Card
-        style={{ width: 480, boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
-        bodyStyle={{ padding: "32px 32px 24px" }}
+        style={{
+          width: 420,
+          borderRadius: 20,
+          boxShadow:
+            "0 18px 45px rgba(15, 35, 95, 0.15), 0 0 0 1px #f0f0f0",
+          padding: "12px 8px 8px",
+        }}
+        bodyStyle={{ padding: "24px 28px 28px" }}
       >
-        <Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
-          Регистрация
-        </Title>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            Регистрация
+          </Title>
+          <Text type="secondary">
+            Создайте аккаунт, чтобы работать с проектами лифтов
+          </Text>
+        </div>
 
         <Form
-          layout="vertical"
           form={form}
+          layout="vertical"
           onFinish={handleFinish}
-          requiredMark={false}
+          initialValues={{ role: "student" }}
         >
           <Form.Item
             label="E-mail"
             name="email"
             rules={[
               { required: true, message: "Укажите e-mail" },
-              { type: "email", message: "Некорректный e-mail" },
+              { type: "email", message: "Введите корректный e-mail" },
             ]}
           >
-            <Input placeholder="student@example.com" />
+            <Input placeholder="student@example.com" size="large" />
           </Form.Item>
 
           <Form.Item label="Полное имя" name="full_name">
-            <Input placeholder="Иванов Иван" />
+            <Input placeholder="Иванов Иван" size="large" />
           </Form.Item>
 
-          <Form.Item
-            label="Роль"
-            name="role"
-            initialValue="student"
-            rules={[{ required: true, message: "Выберите роль" }]}
-          >
+          <Form.Item label="Роль" name="role">
             <Radio.Group>
               <Radio value="student">Студент</Radio>
               <Radio value="teacher">Преподаватель</Radio>
@@ -99,17 +117,22 @@ export const RegisterPage: React.FC = () => {
             rules={[
               { required: true, message: "Введите пароль" },
               { min: 6, message: "Минимум 6 символов" },
+              {
+                max: 72,
+                message: "Максимум 72 символа (ограничение bcrypt)",
+              },
             ]}
-            hasFeedback
           >
-            <Input.Password placeholder="Минимум 6 символов" />
+            <Input.Password
+              placeholder="Минимум 6 символов"
+              size="large"
+            />
           </Form.Item>
 
           <Form.Item
             label="Подтверждение пароля"
-            name="confirm"
+            name="password_confirm"
             dependencies={["password"]}
-            hasFeedback
             rules={[
               { required: true, message: "Подтвердите пароль" },
               ({ getFieldValue }) => ({
@@ -124,22 +147,39 @@ export const RegisterPage: React.FC = () => {
               }),
             ]}
           >
-            <Input.Password placeholder="Ещё раз пароль" />
+            <Input.Password
+              placeholder="Повторите пароль"
+              size="large"
+            />
           </Form.Item>
 
-          <Form.Item style={{ marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" block>
+          <Form.Item style={{ marginTop: 24 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={loading}
+            >
               Зарегистрироваться
             </Button>
           </Form.Item>
         </Form>
 
-        <div style={{ marginTop: 16, textAlign: "center" }}>
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 8,
+            fontSize: 13,
+          }}
+        >
           <Text type="secondary">
-            Уже есть аккаунт? <Link to="/auth/login">Войти</Link>
+            Уже есть аккаунт? <Link to="/login">Войти</Link>
           </Text>
         </div>
       </Card>
     </div>
   );
 };
+
+export default RegisterPage;

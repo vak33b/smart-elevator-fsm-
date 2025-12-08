@@ -8,7 +8,6 @@ import { ProjectsListPage } from "./pages/projects/ProjectsListPage";
 import { ProjectEditorPage } from "./pages/projectEditor/ProjectEditorPage";
 import { SimulationPage } from "./pages/simulation/SimulationPage";
 import { CreateProjectPage } from "./pages/projects/CreateProjectPage";
-import { UserRoleProvider } from "./context/UserRoleContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 
