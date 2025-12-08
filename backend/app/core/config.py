@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "smart_elevator"
+    SECRET_KEY: str = "super-secret-key-change-me"
+
+    # сколько минут живёт access-token
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # Можно переопределить целиком через .env
     DATABASE_URL: str | None = None
@@ -35,3 +39,5 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+settings = get_settings()

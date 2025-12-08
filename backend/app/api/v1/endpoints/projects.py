@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -123,22 +123,72 @@ def delete_project(
     db.commit()
     return None
 
+def enrich_timeline_with_fsm_states(
+    timeline: List[Dict[str, Any]],
+    door_time: float = 4.0,
+) -> List[Dict[str, Any]]:
+    """
+    Нормализуем state_id (moving_up / moving_down / idle_closed)
+    и добавляем фазы остановки с открытыми дверями на каждом этаже
+    на door_time секунд.
+    """
+    new_timeline: List[Dict[str, Any]] = []
+
+    for idx, frame in enumerate(timeline):
+        base = dict(frame)  # копия кадра
+        base_state = base.get("state_id") or "idle"
+        direction = base.get("direction") or "none"
+
+        # Нормализуем имя состояния, но НЕ трогаем doors_open, кроме движения
+        if base_state == "moving":
+            if direction == "up":
+                base["state_id"] = "moving_up"
+            elif direction == "down":
+                base["state_id"] = "moving_down"
+            else:
+                base["state_id"] = "idle_closed"
+            # в движении двери всегда закрыты
+            base["doors_open"] = False
+        elif base_state == "idle":
+            base["state_id"] = "idle_closed"
+
+        new_timeline.append(base)
+
+        # Для всех кадров, кроме самого первого (старт в 0),
+        # добавляем фазу с открытыми дверями на этаже
+        if idx > 0:
+            # начало открытия дверей — почти в момент прибытия
+            open_frame = dict(base)
+            open_frame["time"] = base["time"] + 0.001  # маленький сдвиг, чтобы не было дублей по времени
+            open_frame["state_id"] = "doors_open"
+            open_frame["doors_open"] = True
+
+            # закрытие дверей / конец остановки через door_time секунд
+            close_frame = dict(base)
+            close_frame["time"] = base["time"] + door_time
+            close_frame["state_id"] = "idle_closed"
+            close_frame["doors_open"] = False
+
+            new_timeline.append(open_frame)
+            new_timeline.append(close_frame)
+
+    # сортируем по времени, чтобы всё шло по возрастанию
+    new_timeline.sort(key=lambda f: f["time"])
+    return new_timeline
+
 @router.post(
     "/{project_id}/simulate",
     response_model=schemas.SimulationResult,
     summary="Запустить симуляцию для сохранённого проекта",
 )
+
+
+
 def simulate_project(
     project_id: int,
     payload: schemas.ProjectSimulationRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Запуск симуляции проекта по его ID.
-    Используется конфиг проекта + возможность переопределения.
-    """
-
-    # 1. Загружаем проект
     project = db.query(models.Project).get(project_id)
     if not project:
         raise HTTPException(
@@ -152,7 +202,6 @@ def simulate_project(
             detail="Project has no config",
         )
 
-    # 2. Восстанавливаем ProjectConfig
     try:
         project_config = schemas.ProjectConfig.model_validate(project.config)
     except Exception as e:
@@ -161,10 +210,10 @@ def simulate_project(
             detail=f"Invalid project config format: {e}",
         )
 
-    # 3. Выбираем конфиг лифта
+    # лифт
     elevator_config = payload.config_override or project_config.elevator
 
-    # 4. Выбираем сценарий
+    # сценарий
     scenario = payload.scenario or project_config.default_scenario
     if scenario is None:
         raise HTTPException(
@@ -172,149 +221,16 @@ def simulate_project(
             detail="No scenario provided and project has no default_scenario",
         )
 
-    # 5. Формируем объект запроса симуляции
     sim_request = schemas.SimulationRequest(
         project_id=project_id,
         config=elevator_config,
         fsm=project_config.fsm,
-        scenario=scenario,
+        scenario=scenario,  # это уже app.schemas.scenario.Scenario
     )
 
-    # 6. Выполняем симуляцию
     result = simulate(sim_request)
+    return result
 
-    # 7. Определяем время дверей
-    try:
-        door_time = float(elevator_config.door_time)
-    except AttributeError:
-        door_time = float(elevator_config.get("door_time", 2.0))
 
-    # 8. Получаем dict результата
-    result_dict = result.model_dump()
-    timeline = result_dict.get("timeline", [])
 
-    # 9. Постобработка таймлайна (FSM-состояния)
-    enriched = enrich_timeline_with_fsm_states(
-        timeline=timeline,
-        door_time=door_time,
-    )
-    result_dict["timeline"] = enriched
-
-    # 10. FastAPI сам приведёт dict → SimulationResult
-    return result_dict
-
-def enrich_timeline_with_fsm_states(
-    timeline: List[Dict[str, Any]],
-    door_time: float,
-) -> List[Dict[str, Any]]:
-    """
-    Постобработка таймлайна симуляции.
-
-    На входе ожидаем кадры вида:
-      {
-        "time": float,
-        "floor": int,
-        "state_id": "moving" | "idle" | ...,
-        "doors_open": bool,
-        "direction": "up" | "down" | "none"
-      }
-
-    На выходе получаем более подробные состояния:
-      idle_closed, moving_up, moving_down,
-      doors_opening, doors_open, doors_closing
-    """
-
-    if not timeline:
-        return timeline
-
-    # 1. Нормализуем moving/idle → moving_up/down/idle_closed
-    base_processed: List[Dict[str, Any]] = []
-    for frame in timeline:
-        f = dict(frame)  # делаем обычный dict, если был pydantic-объект
-
-        base_state = f.get("state_id")
-        direction = f.get("direction") or "none"
-
-        if base_state == "moving":
-            if direction == "up":
-                f["state_id"] = "moving_up"
-            elif direction == "down":
-                f["state_id"] = "moving_down"
-            else:
-                f["state_id"] = "idle_closed"
-            f["doors_open"] = False
-        elif base_state == "idle":
-            # вместо "idle" считаем, что лифт просто стоит с закрытыми дверями,
-            # а фазы дверей добавим отдельно
-            f["state_id"] = "idle_closed"
-            f["doors_open"] = False
-        else:
-            # неизвестное состояние — оставляем как есть
-            pass
-
-        base_processed.append(f)
-
-    # 2. Вставляем фазы дверей между кадрами,
-    #    где лифт стоит на одном этаже с direction="none"
-    enriched: List[Dict[str, Any]] = []
-    n = len(base_processed)
-
-    door_opening_phase = door_time * 0.25
-    door_open_phase = door_time * 0.5
-    door_closing_phase = door_time * 0.25
-
-    i = 0
-    while i < n:
-        f = base_processed[i]
-        enriched.append(f)
-
-        if i + 1 < n:
-            next_f = base_processed[i + 1]
-            curr_floor = f.get("floor")
-            next_floor = next_f.get("floor")
-            curr_dir = f.get("direction") or "none"
-            dt = float(next_f.get("time", 0) - f.get("time", 0))
-
-            if (
-                curr_floor == next_floor
-                and curr_dir == "none"
-                and dt >= door_time
-            ):
-                t0 = float(f["time"])
-                t1 = t0 + door_opening_phase
-                t2 = t1 + door_open_phase
-                t3 = t2 + door_closing_phase
-
-                # doors_opening
-                enriched.append(
-                    {
-                        **f,
-                        "time": t1,
-                        "state_id": "doors_opening",
-                        "doors_open": False,
-                    }
-                )
-                # doors_open
-                enriched.append(
-                    {
-                        **f,
-                        "time": t2,
-                        "state_id": "doors_open",
-                        "doors_open": True,
-                    }
-                )
-                # doors_closing
-                enriched.append(
-                    {
-                        **f,
-                        "time": t3,
-                        "state_id": "doors_closing",
-                        "doors_open": False,
-                    }
-                )
-
-        i += 1
-
-    enriched.sort(key=lambda x: x.get("time", 0))
-    return enriched
 

@@ -1,0 +1,104 @@
+.elevator-container {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Шахта */
+.elevator-shaft {
+  position: relative;
+  width: 120px;
+  border-radius: 16px;
+  background: #f7f7f7;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.elevator-shaft.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-text {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Этажи */
+.floor {
+  height: 90px; /* тот же, что FLOOR_HEIGHT в TSX */
+  border-bottom: 1px dashed #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Кабина */
+.lift-cabin {
+  position: absolute;
+  top: 0;           /* чтобы transform: translateY был от верха шахты */
+  left: 60px;
+  background: #555;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  z-index: 1;
+  transition: transform 0.25s linear; /* плавное перемещение */
+}
+
+/* Двери */
+.doors {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+}
+
+.door {
+  flex: 1;
+  background: #eee;
+  border-right: 1px solid #ccc;
+  transition: transform 0.25s ease;
+}
+
+.doors.closed .door.left,
+.doors.closed .door.right {
+  transform: translateX(0);
+}
+
+/* левая створка */
+.door.left {
+  left: 0;
+}
+
+/* правая створка */
+.door.right {
+  right: 0;
+}
+
+/* ОТКРЫТО: створки уезжают за пределы кабины,
+   посередине появляется заметная щель */
+.doors.open .door.left {
+  transform: translateX(-100%);
+}
+
+.doors.open .door.right {
+  transform: translateX(100%);
+}
+
+/* Доп.плашка с текстом */
+.status-panel {
+  min-width: 260px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 1px #f0f0f0;
+  font-size: 13px;
+}
+
+.status-panel h4 {
+  margin: 0 0 8px 0;
+}

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 
 class Direction(str, Enum):
@@ -12,28 +12,67 @@ class Direction(str, Enum):
     NONE = "none"
 
 
-class ElevatorConfig(BaseModel):
-    floors: int = Field(..., gt=0, description="Количество этажей")
-    door_time: float = Field(
-        2.0,
-        description="Время открытия/закрытия дверей (условные единицы/секунды)",
-    )
-    move_time: float = Field(
-        1.0,
-        description="Время перемещения между этажами",
-    )
-    capacity: Optional[int] = Field(
-        default=None,
-        description="Грузоподъёмность/количество людей (если понадобится)",
-    )
+class ScenarioEventType(str, Enum):
+    """
+    Тип внешнего события для автомата.
+    Пока нам достаточно CALL, но оставляем задел.
+    """
+    CALL = "call"
+    CABIN = "cabin"
+    TIMER = "timer"
+    SENSOR = "sensor"
 
 
 class ScenarioEvent(BaseModel):
-    time: int = Field(..., ge=0, description="Момент, когда поступает вызов")
-    floor: int = Field(..., ge=0, description="Этаж вызова")
+    """
+    Одно событие сценария (вызов, таймер и т.п.).
+    """
+    time: int = Field(..., ge=0, description="Момент, когда поступает событие")
+    floor: int = Field(..., ge=0, description="Этаж, к которому относится событие")
     direction: Direction = Direction.NONE
+    # ВАЖНО: делаем поле type с дефолтом,
+    # чтобы старые сценарии без этого поля валидировались как CALL.
+    type: ScenarioEventType = ScenarioEventType.CALL
 
 
 class Scenario(BaseModel):
-    name: str = "Default scenario"
-    events: list[ScenarioEvent]
+    """
+    Сценарий: имя + список событий.
+    """
+    name: Optional[str] = None
+    events: List[ScenarioEvent] = Field(default_factory=list)
+
+    @classmethod
+    def model_validate(cls, obj: Any) -> "Scenario":  # type: ignore[override]
+        """
+        Переопределяем validate, чтобы:
+        - принимать уже нормальный формат (name + events с type);
+        - принимать старый формат {name, events: [{time, floor, direction}]}
+          и дополнять его полем type = CALL.
+        """
+        try:
+            # Попробуем обычную валидацию
+            return super().model_validate(obj)
+        except ValidationError:
+            pass
+
+        # Старый формат: { name, events: [ {time, floor, direction} ] }
+        name = None
+        events_raw: List[Any] = []
+
+        if isinstance(obj, dict):
+            name = obj.get("name")
+            events_raw = obj.get("events", []) or []
+
+        converted_events: List[ScenarioEvent] = []
+        for ev in events_raw:
+            converted_events.append(
+                ScenarioEvent(
+                    time=int(ev.get("time", 0)),
+                    floor=int(ev.get("floor", 0)),
+                    direction=Direction(ev.get("direction", "none")),
+                    type=ScenarioEventType.CALL,
+                )
+            )
+
+        return Scenario(name=name, events=converted_events)

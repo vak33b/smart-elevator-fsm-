@@ -1,11 +1,23 @@
+# backend/app/schemas/simulation.py
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
+from app.schemas.scenario import Scenario, Direction
 from app.schemas.fsm import FSMDefinition
-from app.schemas.scenario import ElevatorConfig, Scenario, Direction
+from app.schemas.project import ElevatorConfig
+
+
+class SimulationRequest(BaseModel):
+    """
+    Внутренний запрос симуляции: backend сам собирает его из ProjectConfig.
+    """
+    project_id: int
+    config: ElevatorConfig
+    fsm: FSMDefinition
+    scenario: Scenario
 
 
 class TimelineItem(BaseModel):
@@ -17,27 +29,20 @@ class TimelineItem(BaseModel):
 
 
 class SimulationMetrics(BaseModel):
-    avg_wait_time: float = 0.0
-    total_moves: int = 0
-    stops: int = 0
-
-
-class SimulationRequest(BaseModel):
-    project_id: Optional[int] = Field(
-        default=None,
-        description="ID проекта (опционально, для связи с сохранённым проектом)",
-    )
-    config: ElevatorConfig
-    fsm: FSMDefinition
-    scenario: Scenario
+    avg_wait_time: float
+    total_moves: int
+    stops: int
 
 
 class SimulationResult(BaseModel):
-    timeline: list[TimelineItem]
+    timeline: List[TimelineItem]
     metrics: SimulationMetrics
 
 
 class ProjectSimulationRequest(BaseModel):
-
+    """
+    То, что приходит в эндпоинт /projects/{id}/simulate с фронта.
+    Все поля опциональны, можно просто отправить {}.
+    """
     scenario: Optional[Scenario] = None
     config_override: Optional[ElevatorConfig] = None

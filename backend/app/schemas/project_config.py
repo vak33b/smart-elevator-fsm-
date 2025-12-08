@@ -5,8 +5,8 @@ from typing import Optional
 from pydantic import BaseModel
 
 from .fsm import FSMDefinition
-from .scenario import ElevatorConfig, Scenario
-
+from .scenario import Scenario
+from .project import ElevatorConfig
 
 class ProjectConfig(BaseModel):
     """

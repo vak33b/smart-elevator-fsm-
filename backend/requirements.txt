@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+SQLAlchemy
+psycopg2-binary
+python-jose[cryptography]
+bcrypt>=4.0.1,<5.0.0
+# passlib можно удалить или оставить, но не использовать для bcrypt
