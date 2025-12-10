@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any, Optional, Set
 
 from pydantic import BaseModel, Field, model_validator
+from app.schemas.scenario import ScenarioEventType
 
 
 class FSMType(str, Enum):
@@ -35,10 +36,24 @@ class FSMTransition(BaseModel):
             "то переход выполняется, когда этот сигнал == True."
         ),
     )
+    event_type: Optional[ScenarioEventType] = Field(
+        default=None,
+        description="Тип события сценария, на которое реагирует переход. None — реагирует на любое.",
+    )
     actions: Optional[dict[str, Any]] = Field(
         default=None,
         description="Действия при переходе (например, установка сигналов)",
     )
+
+
+class FSMVerilogExportRequest(BaseModel):
+    module_name: Optional[str] = None
+
+
+class FSMVerilogExport(BaseModel):
+    project_id: int
+    module_name: str
+    verilog: str
 
 
 class FSMDefinition(BaseModel):

@@ -4,10 +4,17 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.schemas.scenario import Scenario
 from app.schemas.fsm import FSMDefinition
+from app.schemas.user import User as UserSchema
+
+
+class ProjectStatus(str, Enum):
+    draft = "draft"
+    submitted = "submitted"
+    reviewed = "reviewed"
 
 
 class ElevatorConfig(BaseModel):
@@ -42,36 +49,70 @@ class ProjectBase(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     config: Optional[ProjectConfig] = None
+    status: ProjectStatus = Field(default=ProjectStatus.draft)
+    owner_id: Optional[int] = Field(
+        default=None,
+        description="ID пользователя-владельца (студента)",
+    )
+
 
 
 class ProjectCreate(ProjectBase):
-    # всё то же, что в ProjectBase
-    pass
+    """
+    Создание проекта.
+
+    owner_id:
+    - студент вообще не указывает (ставим ему current_user.id на бэке)
+    - преподаватель может создать проект от имени студента
+    """
+    owner_id: Optional[int] = None
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    # сюда приходит "сырое" config из фронта (dict)
     config: Optional[Dict[str, Any]] = None
+    status: Optional[ProjectStatus] = None
 
-    class Config:
-        from_attributes = True  # аналог orm_mode для Pydantic v2
+    # преподаватель может менять владельца проекта
+    owner_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectInDBBase(ProjectBase):
     id: int
+    owner_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 class Project(ProjectInDBBase):
     """
     Модель, которая используется в response_model для /projects.
     """
+    owner: Optional[UserSchema] = None
+
+
+class ProjectExport(BaseModel):
+    """
+    JSON для экспорта/импорта проекта без БД-метаданных.
+    """
+
+    name: str
+    description: Optional[str] = None
+    status: ProjectStatus = ProjectStatus.draft
+    config: Optional[ProjectConfig] = None
+
+
+class ProjectImport(ProjectCreate):
+    """
+    Данные для импорта проекта из JSON-файла.
+    """
+
     pass
 
 
@@ -95,3 +136,34 @@ class ExternalEvent(BaseModel):
         None,
         description="Этаж, к которому относится событие (если применимо)",
     )
+
+# ---------- РЕЦЕНЗИИ НА ПРОЕКТЫ ----------
+
+class ProjectReviewBase(BaseModel):
+    comment: str
+
+
+class ProjectReviewCreate(ProjectReviewBase):
+    """
+    То, что приходит от клиента при создании рецензии.
+    Сейчас нам нужен только текст комментария.
+    """
+    pass
+
+
+class ProjectReviewInDBBase(ProjectReviewBase):
+    id: int
+    project_id: int
+    teacher_id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class ProjectReview(ProjectReviewInDBBase):
+    """
+    То, что отдаем наружу:
+    id, project_id, teacher_id, comment, created_at.
+    """
+    pass

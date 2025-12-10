@@ -1,5 +1,5 @@
 from app.db.base import Base  # noqa
 
-from .project import Project, User, UserRole  # + если есть другие модели
+from .project import Project, ProjectReview, User, UserRole, ProjectStatus
 
-__all__ = ["Project", "User", "UserRole"]
+__all__ = ["Project", "ProjectReview", "User", "UserRole", "ProjectStatus"]

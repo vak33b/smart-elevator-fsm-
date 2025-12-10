@@ -3,7 +3,7 @@ import { apiClient } from "./client";
 
 // ----- Типы -----
 
-export type UserRole = "student" | "teacher";
+export type UserRole = "student" | "teacher" | "admin";
 
 export interface User {
   id: number;
@@ -30,6 +30,7 @@ export interface LoginPayload {
 export interface TokenResponse {
   access_token: string;
   token_type: string;
+  user: User;
 }
 
 // ----- Чистые функции -----
@@ -48,8 +49,7 @@ export async function loginUser(
 ): Promise<TokenResponse> {
   const { data } = await apiClient.post<TokenResponse>(
     "/auth/login",
-    null,
-    { params: { email, password } }
+    { email, password }
   );
   return data;
 }
@@ -64,6 +64,15 @@ export const authApi = {
   async register(payload: RegisterPayload): Promise<User> {
     return registerUser(payload);
   },
+
+  async me(): Promise<User> {
+    return fetchCurrentUser();
+  },
 };
 
 export type LoginResponse = TokenResponse;
+
+export async function fetchCurrentUser(): Promise<User> {
+  const { data } = await apiClient.get<User>("/users/me");
+  return data;
+}

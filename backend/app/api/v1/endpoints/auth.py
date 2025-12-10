@@ -1,8 +1,6 @@
 # backend/app/api/v1/endpoints/auth.py
 from __future__ import annotations
 
-from typing import Annotated
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -18,11 +16,11 @@ from app.core.security import (
 router = APIRouter()
 
 
-# ---------- СХЕМЫ ДЛЯ ЗАПРОСОВ ----------
+# ---------- СХЕМА ДЛЯ ЛОГИНА (JSON) ----------
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+  email: EmailStr
+  password: str
 
 
 # ---------- РЕГИСТРАЦИЯ ----------
@@ -33,6 +31,18 @@ class LoginRequest(BaseModel):
     status_code=status.HTTP_201_CREATED,
 )
 def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Регистрация нового пользователя.
+
+    Ожидает JSON по схеме UserCreate:
+    {
+      "email": "...",
+      "full_name": "...",
+      "role": "student" | "teacher",
+      "password": "...",
+      "is_active": true
+    }
+    """
     existing = (
         db.query(models.User)
         .filter(models.User.email == user_in.email)
@@ -44,7 +54,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
             detail="Пользователь с таким email уже существует",
         )
 
-    # маппинг роль -> SQLAlchemy Enum
+    # Маппим pydantic-роль -> SQLAlchemy Enum
     if user_in.role == schemas.UserRole.TEACHER:
         db_role = models.UserRole.teacher
     else:
@@ -57,6 +67,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
         role=db_role,
         is_active=user_in.is_active,
     )
+
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -67,7 +78,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @router.post(
     "/login",
-    response_model=schemas.Token,
+    response_model=schemas.AuthResponse,
 )
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """
@@ -76,6 +87,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
       "email": "...",
       "password": "..."
     }
+    Возвращаем:
+    - access_token
+    - user (с full_name, role и т.д.)
     """
     user = (
         db.query(models.User)
@@ -90,4 +104,12 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
 
     access_token = create_access_token(str(user.id))
-    return schemas.Token(access_token=access_token)
+
+    # ВАЖНО: заворачиваем SQLAlchemy-модель в pydantic-схему User,
+    # чтобы гарантированно получить правильный JSON.
+    user_schema = schemas.User.model_validate(user)
+
+    return schemas.AuthResponse(
+        access_token=access_token,
+        user=user_schema,
+    )

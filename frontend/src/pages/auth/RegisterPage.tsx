@@ -10,7 +10,7 @@ import {
   message,
 } from "antd";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import { authApi } from "../../api/auth";
 
 const { Title, Text } = Typography;
 
@@ -34,7 +34,7 @@ export const RegisterPage: React.FC = () => {
         password: values.password,
       };
 
-      await axios.post("/api/v1/auth/register", payload);
+      await authApi.register(payload);
 
       message.success("Регистрация прошла успешно, войдите в систему");
       navigate("/login");

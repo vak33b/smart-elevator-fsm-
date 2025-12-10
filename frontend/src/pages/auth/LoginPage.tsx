@@ -2,43 +2,47 @@
 import React, { useState } from "react";
 import { Card, Form, Input, Button, Typography, message } from "antd";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
+import { authApi } from "../../api/auth";
 
 const { Title, Text } = Typography;
 
 export const LoginPage: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
-  const { login } = useAuth(); // login(token: string, role?: string)
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleFinish = async (values: any) => {
     setLoading(true);
     try {
-      // отправляем JSON, как ждёт наш /auth/login
-      const { data } = await axios.post("/api/v1/auth/login", {
+      const data = await authApi.login({
         email: values.email,
         password: values.password,
       });
 
       if (data?.access_token) {
-        // роль пока с бэка не возвращаем — можно передать undefined
-        login(data.access_token);
+        login({
+          token: data.access_token,
+          user: {
+            email: data.user.email,
+            full_name: data.user.full_name,
+            role: data.user.role,
+          },
+        });
       }
 
-      message.success("Успешный вход");
+      message.success("Login successful");
       navigate("/projects");
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       if (Array.isArray(detail)) {
-        // detail из FastAPI при 422 — это массив объектов {type, loc, msg, input}
         message.error(detail.map((e: any) => e.msg).join("; "));
       } else if (typeof detail === "string") {
         message.error(detail);
       } else {
         message.error(
-          "Не удалось войти. Проверьте e-mail и пароль."
+          "Login failed. Check e-mail and password."
         );
       }
     } finally {
@@ -70,10 +74,10 @@ export const LoginPage: React.FC = () => {
       >
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <Title level={3} style={{ marginBottom: 4 }}>
-            Вход
+            Login
           </Title>
           <Text type="secondary">
-            Авторизуйтесь, чтобы продолжить работу с проектами
+            Enter e-mail and password to continue.
           </Text>
         </div>
 
@@ -87,19 +91,21 @@ export const LoginPage: React.FC = () => {
             label="E-mail"
             name="email"
             rules={[
-              { required: true, message: "Укажите e-mail" },
-              { type: "email", message: "Введите корректный e-mail" },
+              { required: true, message: "Please enter e-mail" },
+              { type: "email", message: "Please enter a valid e-mail" },
             ]}
           >
             <Input placeholder="student@example.com" size="large" />
           </Form.Item>
 
           <Form.Item
-            label="Пароль"
+            label="Password"
             name="password"
-            rules={[{ required: true, message: "Введите пароль" }]}
+            rules={[
+              { required: true, message: "Please enter password" },
+            ]}
           >
-            <Input.Password placeholder="Ваш пароль" size="large" />
+            <Input.Password placeholder="Password" size="large" />
           </Form.Item>
 
           <Form.Item style={{ marginTop: 24 }}>
@@ -110,7 +116,7 @@ export const LoginPage: React.FC = () => {
               block
               loading={loading}
             >
-              Войти
+              Sign in
             </Button>
           </Form.Item>
         </Form>
@@ -123,7 +129,8 @@ export const LoginPage: React.FC = () => {
           }}
         >
           <Text type="secondary">
-            Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+            Don't have an account?{" "}
+            <Link to="/register">Register</Link>
           </Text>
         </div>
       </Card>
@@ -132,3 +139,4 @@ export const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+

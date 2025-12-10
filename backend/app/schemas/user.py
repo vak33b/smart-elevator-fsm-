@@ -5,13 +5,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
 class UserRole(str, Enum):
     """Роль пользователя в системе."""
     STUDENT = "student"
     TEACHER = "teacher"
+    ADMIN = "admin"
 
 
 class UserBase(BaseModel):
@@ -52,17 +53,14 @@ class UserUpdate(BaseModel):
         description="Новый пароль (опционально, до 72 символов)",
     )
 
-    class Config:
-        orm_mode = True
-
 
 class UserInDBBase(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Pydantic v2: allow validation from SQLAlchemy ORM objects
+    model_config = ConfigDict(from_attributes=True)
 
 
 class User(UserInDBBase):
@@ -87,3 +85,13 @@ class TokenPayload(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class AuthResponse(BaseModel):
+    """
+    Ответ авторизации /auth/login:
+    - JWT токен
+    - объект пользователя с full_name, role и т.д.
+    """
+    access_token: str
+    token_type: str = "bearer"
+    user: User

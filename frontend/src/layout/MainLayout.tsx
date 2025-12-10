@@ -1,45 +1,81 @@
-// src/layout/MainLayout.tsx
+﻿// src/layout/MainLayout.tsx
 import React from "react";
-import { Layout, Menu, Typography } from "antd";
+import { Layout, Menu, Typography, Button, Space } from "antd";
 import {
   ApartmentOutlined,
   PlayCircleOutlined,
   ProjectOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const { Header, Content, Sider } = Layout;
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-const menuItems = [
-  {
-    key: "/projects",
-    icon: <ProjectOutlined />,
-    label: <Link to="/projects">Проекты</Link>,
-  },
-  {
-    key: "/simulation",
-    icon: <PlayCircleOutlined />,
-    label: <Link to="/simulation">Симуляция</Link>,
-  },
-  {
-    key: "/about",
-    icon: <ApartmentOutlined />,
-    label: <Link to="/about">О проекте</Link>,
-  },
-];
+const roleLabelMap: Record<string, string> = {
+  student: "Студент",
+  teacher: "Преподаватель",
+  admin: "Администратор",
+};
 
 export const MainLayout: React.FC = () => {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
 
-  // определяем, какая вкладка должна быть подсвечена
-  const selectedKey = menuItems.some((i) =>
-    location.pathname.startsWith(i.key)
-  )
-    ? menuItems.find((i) => location.pathname.startsWith(i.key))!.key
-    : "/projects";
+  // Публичные маршруты: показываем контент без меню
+  if (!isAuthenticated) {
+    return (
+      <Layout style={{ minHeight: "100vh" }}>
+        <Content>
+          <Outlet />
+        </Content>
+      </Layout>
+    );
+  }
+
+  const displayName =
+    (user?.full_name && user.full_name.trim().length > 0
+      ? user.full_name
+      : user?.email) || "Без имени";
+
+  const displayRole =
+    user?.role != null
+      ? roleLabelMap[user.role as string] ?? (user.role as string)
+      : "";
+
+  const selectedKey = location.pathname.startsWith("/projects")
+    ? "/projects"
+    : location.pathname;
+
+  const items = [
+    {
+      key: "/projects",
+      icon: <ProjectOutlined />,
+      label: <Link to="/projects">Проекты</Link>,
+    },
+    ...(user?.role === "teacher"
+      ? [
+          {
+            key: "/students-projects",
+            icon: <TeamOutlined />,
+            label: (
+              <Link to="/students-projects">Проекты студентов</Link>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: "/simulation",
+      icon: <PlayCircleOutlined />,
+      label: <Link to="/simulation">Симуляция</Link>,
+    },
+    {
+      key: "/about",
+      icon: <ApartmentOutlined />,
+      label: <Link to="/about">О проекте</Link>,
+    },
+  ];
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -47,44 +83,56 @@ export const MainLayout: React.FC = () => {
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
+          paddingInline: 24,
           color: "white",
         }}
       >
         <Title level={3} style={{ color: "white", margin: 0 }}>
           Smart Elevator FSM
         </Title>
+
+        <Space size="middle" align="center">
+          <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>
+            {displayName}
+            {displayRole && (
+              <span style={{ marginLeft: 8 }}>({displayRole})</span>
+            )}
+          </Text>
+          <Button
+            type="primary"
+            size="middle"
+            onClick={logout}
+            style={{
+              borderRadius: 999,
+              paddingInline: 20,
+              fontWeight: 500,
+            }}
+          >
+            Выйти
+          </Button>
+        </Space>
       </Header>
 
       <Layout>
-        {/* Сайдбар и меню показываем ТОЛЬКО если пользователь авторизован */}
-        {isAuthenticated && (
-          <Sider width={220}>
-            <Menu
-              theme="dark"
-              mode="inline"
-              selectedKeys={[selectedKey]}
-              items={menuItems}
-            />
-          </Sider>
-        )}
+        <Sider width={220}>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={items}
+          />
+        </Sider>
 
-        <Layout
-          style={{
-            padding: isAuthenticated ? "16px 24px 24px" : "24px",
-          }}
-        >
+        <Layout style={{ padding: "16px 24px 24px" }}>
           <Content
             style={{
-              background: isAuthenticated ? "#fff" : "transparent",
-              padding: isAuthenticated ? 24 : 0,
-              borderRadius: isAuthenticated ? 8 : 0,
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
               minHeight: 280,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: isAuthenticated ? "flex-start" : "center",
             }}
           >
-            {/* Здесь подставляются страницы (регистрация, логин, проекты и т.д.) */}
             <Outlet />
           </Content>
         </Layout>

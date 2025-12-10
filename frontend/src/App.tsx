@@ -1,37 +1,38 @@
 // src/App.tsx
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "./layout/MainLayout";
-import {LoginPage} from "./pages/auth/LoginPage";
-import {RegisterPage} from "./pages/auth/RegisterPage";
+import { LoginPage } from "./pages/auth/LoginPage";
+import { RegisterPage } from "./pages/auth/RegisterPage";
 import { ProjectsListPage } from "./pages/projects/ProjectsListPage";
 import { ProjectEditorPage } from "./pages/projectEditor/ProjectEditorPage";
 import { SimulationPage } from "./pages/simulation/SimulationPage";
 import { CreateProjectPage } from "./pages/projects/CreateProjectPage";
+import { StudentsProjectsPage } from "./pages/projects/StudentsProjectsPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-
+import AboutPage from "./pages/AboutPage";
 
 const App: React.FC = () => {
   return (
-          <Routes>
-              <Route element={<MainLayout />}>
-                {/* РїСѓР±Р»РёС‡РЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹ */}
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
+    <Routes>
+      <Route element={<MainLayout />}>
+        {/* Публичные маршруты */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-                {/* Р·Р°С‰РёС‰С‘РЅРЅС‹Рµ РјР°СЂС€СЂСѓС‚С‹ */}
-                <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Navigate to="/projects" replace />} />
-                <Route path="/projects" element={<ProjectsListPage />} />
-                <Route path="/projects/new" element={<CreateProjectPage />} />
-                <Route path="/projects/:id" element={<ProjectEditorPage />} />
-                <Route path="/simulation" element={<SimulationPage />} />
-                <Route path="/about" element={<div>Р—РґРµСЃСЊ Р±СѓРґРµС‚ РёРЅС„Рѕ Рѕ РїСЂРѕРµРєС‚Рµ.</div>} />
-                <Route path="*" element={<div>РЎС‚СЂР°РЅРёС†Р° РЅРµ РЅР°Р№РґРµРЅР°</div>} />
-              </Route>
-            </Route>
-          </Routes>
-        
+        {/* Закрытые маршруты после авторизации */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Navigate to="/projects" replace />} />
+          <Route path="/projects" element={<ProjectsListPage />} />
+          <Route path="/projects/new" element={<CreateProjectPage />} />
+          <Route path="/projects/:id" element={<ProjectEditorPage />} />
+          <Route path="/students-projects" element={<StudentsProjectsPage />} />
+          <Route path="/simulation" element={<SimulationPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="*" element={<div>Страница не найдена</div>} />
+        </Route>
+      </Route>
+    </Routes>
   );
 };
 
