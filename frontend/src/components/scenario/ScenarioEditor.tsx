@@ -43,7 +43,13 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
   );
 
   const [events, setEvents] = useState<ScenarioEvent[]>(
-    Array.isArray(scenario.events) ? scenario.events : []
+    Array.isArray(scenario.events)
+      ? scenario.events.map((e) => ({
+          time: e.time,
+          floor: e.floor,
+          direction: (e as ScenarioEvent).direction ?? "none",
+        }))
+      : []
   );
 
   const handleAddEvent = () => {
@@ -70,8 +76,8 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
     value: number | Direction
   ) => {
     const updated = [...events];
-    // @ts-expect-error: тип подхватывается по ключу
-    updated[index][field] = value;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (updated[index] as any)[field] = value;
     setEvents(updated);
   };
 
@@ -82,7 +88,8 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
 
     const toSave: Scenario = {
       name: localName.trim() || "scenario",
-      events: cleaned,
+      // Тип события для бэка ставим по умолчанию "call"
+      events: cleaned.map((e) => ({ ...e, type: "call" as const })),
     };
 
     await onSave(toSave);
@@ -90,10 +97,10 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
 
   return (
     <Space direction="vertical" style={{ width: "100%" }} size="large">
-      <Card title="Общая информация о сценарии">
+      <Card title="Название сценария и список событий">
         <Space direction="vertical" style={{ width: "100%" }}>
           <div>
-            <Text type="secondary">Имя сценария:</Text>
+            <Text type="secondary">Название сценария:</Text>
             <Input
               style={{ marginTop: 4, maxWidth: 320 }}
               value={localName}
@@ -101,7 +108,8 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
             />
           </div>
           <Text type="secondary">
-            Сценарий — это список событий (вызовов лифта по времени).
+            Укажите события в хронологическом порядке (при необходимости
+            последовательность можно переупорядочить).
           </Text>
         </Space>
       </Card>
@@ -172,9 +180,7 @@ export const ScenarioEditor: React.FC<ScenarioEditorProps> = ({
                   title="Удалить событие?"
                   onConfirm={() => handleDeleteEvent(index)}
                 >
-                  <Button danger size="small">
-                    Удалить
-                  </Button>
+                  <Button danger size="small">Удалить</Button>
                 </Popconfirm>
               ),
             },

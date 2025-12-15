@@ -74,10 +74,10 @@ export const LoginPage: React.FC = () => {
       >
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <Title level={3} style={{ marginBottom: 4 }}>
-            Login
+            Вход в систему
           </Title>
           <Text type="secondary">
-            Enter e-mail and password to continue.
+            Введите e‑mail и пароль, чтобы продолжить.
           </Text>
         </div>
 
@@ -91,21 +91,21 @@ export const LoginPage: React.FC = () => {
             label="E-mail"
             name="email"
             rules={[
-              { required: true, message: "Please enter e-mail" },
-              { type: "email", message: "Please enter a valid e-mail" },
+              { required: true, message: "Введите e-mail" },
+              { type: "email", message: "Введите корректный e-mail" },
             ]}
           >
             <Input placeholder="student@example.com" size="large" />
           </Form.Item>
 
           <Form.Item
-            label="Password"
+            label="Пароль"
             name="password"
             rules={[
-              { required: true, message: "Please enter password" },
+              { required: true, message: "Введите пароль" },
             ]}
           >
-            <Input.Password placeholder="Password" size="large" />
+            <Input.Password placeholder="Пароль" size="large" />
           </Form.Item>
 
           <Form.Item style={{ marginTop: 24 }}>
@@ -116,7 +116,7 @@ export const LoginPage: React.FC = () => {
               block
               loading={loading}
             >
-              Sign in
+              Войти
             </Button>
           </Form.Item>
         </Form>
@@ -129,8 +129,8 @@ export const LoginPage: React.FC = () => {
           }}
         >
           <Text type="secondary">
-            Don't have an account?{" "}
-            <Link to="/register">Register</Link>
+            Нет аккаунта?{" "}
+            <Link to="/register">Зарегистрироваться</Link>
           </Text>
         </div>
       </Card>
@@ -139,4 +139,3 @@ export const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-

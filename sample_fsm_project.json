@@ -1,0 +1,86 @@
+{
+  "name": "Sample Elevator FSM",
+  "description": "Пример корректной конфигурации лифта и FSM для импорта.",
+  "config": {
+    "elevator": {
+      "floors": 5,
+      "move_time": 1.0,
+      "door_time": 1.0,
+      "capacity": 8
+    },
+    "fsm": {
+      "type": "mealy",
+      "states": [
+        { "id": "IDLE_CLOSED", "name": "Ожидание, двери закрыты", "is_initial": true, "is_final": false },
+        { "id": "MOVING_UP", "name": "Движение вверх", "is_initial": false, "is_final": false },
+        { "id": "MOVING_DOWN", "name": "Движение вниз", "is_initial": false, "is_final": false },
+        { "id": "DOOR_OPENING", "name": "Открытие дверей", "is_initial": false, "is_final": false },
+        { "id": "DOOR_OPEN", "name": "Двери открыты", "is_initial": false, "is_final": false },
+        { "id": "DOOR_CLOSING", "name": "Закрытие дверей", "is_initial": false, "is_final": false }
+      ],
+      "transitions": [
+        {
+          "id": "t_call_up",
+          "from_state_id": "IDLE_CLOSED",
+          "to_state_id": "MOVING_UP",
+          "condition": "call_received",
+          "event_type": "call"
+        },
+        {
+          "id": "t_call_down",
+          "from_state_id": "IDLE_CLOSED",
+          "to_state_id": "MOVING_DOWN",
+          "condition": "call_received",
+          "event_type": "call"
+        },
+        {
+          "id": "t_arrive_up",
+          "from_state_id": "MOVING_UP",
+          "to_state_id": "DOOR_OPENING",
+          "condition": "arrived_at_floor",
+          "event_type": "sensor"
+        },
+        {
+          "id": "t_arrive_down",
+          "from_state_id": "MOVING_DOWN",
+          "to_state_id": "DOOR_OPENING",
+          "condition": "arrived_at_floor",
+          "event_type": "sensor"
+        },
+        {
+          "id": "t_open_done",
+          "from_state_id": "DOOR_OPENING",
+          "to_state_id": "DOOR_OPEN",
+          "condition": "always",
+          "event_type": "timer"
+        },
+        {
+          "id": "t_close_start",
+          "from_state_id": "DOOR_OPEN",
+          "to_state_id": "DOOR_CLOSING",
+          "condition": "door_timer_expired",
+          "event_type": "timer"
+        },
+        {
+          "id": "t_close_done",
+          "from_state_id": "DOOR_CLOSING",
+          "to_state_id": "IDLE_CLOSED",
+          "condition": "always",
+          "event_type": "timer"
+        }
+      ]
+    },
+    "default_scenario": {
+      "name": "Sample calls",
+      "events": [
+        { "time": 0,  "floor": 2, "type": "call",   "direction": "up" },
+        { "time": 3,  "floor": 2, "type": "sensor", "direction": "up" },
+        { "time": 5,  "floor": 2, "type": "timer",  "direction": "none" },
+
+        { "time": 10, "floor": 5, "type": "call",   "direction": "up" },
+        { "time": 13, "floor": 5, "type": "sensor", "direction": "up" },
+        { "time": 15, "floor": 5, "type": "timer",  "direction": "none" }
+      ]
+    }
+  }
+}
